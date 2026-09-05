@@ -28,5 +28,5 @@ func _on_dialogue_ended() -> void:
 	player.can_move = true
 	GameState.set_flag("reached_tree", true)
 	MissionManager.complete_mission("reach_tree")
-	CheckpointManager.save_progress()
+	CheckpointManager.save_checkpoint(player)
 	call_deferred("queue_free")
