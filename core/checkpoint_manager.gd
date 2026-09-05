@@ -55,6 +55,7 @@ func continue_from_checkpoint() -> bool:
 	var state = _save_data.get("state", {})
 	if state is Dictionary:
 		GameState.load_dict(state)
+		MissionManager.reset_story()
 	_restore_pending = true
 	get_tree().paused = false
 	var error := get_tree().change_scene_to_file(MAIN_SCENE)
@@ -93,6 +94,7 @@ func _load_file() -> void:
 	var state = _save_data.get("state", {})
 	if state is Dictionary:
 		GameState.load_dict(state)
+		MissionManager.reset_story()
 	_restore_pending = has_checkpoint()
 	if _restore_pending:
 		call_deferred("_try_restore_player")
