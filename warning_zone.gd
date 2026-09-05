@@ -5,6 +5,9 @@ extends Area3D
 
 var warning := true
 
+func _ready() -> void:
+	warning = not bool(GameState.get_flag("radiation_warning_seen", false))
+
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or not warning:
 		return
@@ -21,3 +24,5 @@ func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) ->
 func _on_dialogue_ended() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	player.can_move = true
+	GameState.set_flag("radiation_warning_seen", true)
+	CheckpointManager.save_progress()

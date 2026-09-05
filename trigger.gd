@@ -5,6 +5,9 @@ extends Area3D
 
 var repaired := false
 
+func _ready() -> void:
+	repaired = bool(GameState.get_flag("radio_repaired", false))
+
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or repaired:
 		return
@@ -20,4 +23,7 @@ func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) ->
 func _on_dialogue_ended() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	repaired = true
+	GameState.set_flag("radio_repaired", true)
+	MissionManager.complete_mission("repair_radio")
+	CheckpointManager.save_progress()
 	player.can_move = true

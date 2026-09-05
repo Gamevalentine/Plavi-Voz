@@ -5,6 +5,12 @@ extends Area3D
 
 var done := false
 
+func _ready() -> void:
+	done = bool(GameState.get_flag("has_map", false))
+	if done:
+		player.has_map = true
+		call_deferred("queue_free")
+
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or done:
 		return
@@ -22,4 +28,7 @@ func _on_dialogue_ended() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	player.can_move = true
 	player.has_map = true
+	GameState.set_flag("has_map", true)
+	MissionManager.complete_mission("find_map")
+	CheckpointManager.save_progress()
 	call_deferred("queue_free")

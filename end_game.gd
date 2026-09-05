@@ -5,6 +5,9 @@ extends Area3D
 
 var warning := true
 
+func _ready() -> void:
+	warning = not bool(GameState.get_flag("game_completed", false))
+
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or not warning:
 		return
@@ -19,4 +22,7 @@ func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) ->
 	_on_dialogue_ended()
 
 func _on_dialogue_ended() -> void:
+	GameState.set_flag("game_completed", true)
+	MissionManager.complete_mission("reach_end")
+	CheckpointManager.save_progress()
 	get_tree().quit()
