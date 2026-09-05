@@ -25,5 +25,5 @@ func _on_dialogue_ended() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	player.can_move = true
 	GameState.set_flag("lake_seen", true)
-	MissionManager.complete_mission("reach_lake")
-	CheckpointManager.save_progress()
+	MissionManager.complete_mission("follow_route")
+	CheckpointManager.save_checkpoint(player)
