@@ -20,10 +20,10 @@ func _on_body_exited(body: Node3D) -> void:
 		InteractionManager.unregister_interactable(self)
 
 func is_interaction_available() -> bool:
-	return not repaired
+	return not repaired and MissionManager.is_current("repair_radio")
 
 func interact(body: Node3D) -> void:
-	if body != player or repaired:
+	if body != player or not is_interaction_available():
 		return
 	InteractionManager.unregister_interactable(self)
 	_start_dialogue(dialogue, "start")
