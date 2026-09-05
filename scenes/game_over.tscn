@@ -22,8 +22,6 @@ content_margin_bottom = 38.0
 script = ExtResource("1_xeevv")
 
 [node name="Background" type="ColorRect" parent="."]
-offset_right = 1920.0
-offset_bottom = 1080.0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -32,8 +30,6 @@ grow_vertical = 2
 color = Color(0.006, 0.008, 0.012, 1)
 
 [node name="Center" type="CenterContainer" parent="."]
-offset_right = 1920.0
-offset_bottom = 1080.0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
