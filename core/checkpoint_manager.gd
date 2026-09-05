@@ -7,6 +7,7 @@ signal checkpoint_cleared
 
 const SAVE_PATH := "user://checkpoint.json"
 const SAVE_VERSION := 1
+const MAIN_SCENE := "res://main.tscn"
 
 var _save_data: Dictionary = {}
 var _restore_pending := false
@@ -47,6 +48,27 @@ func save_checkpoint(player: Node3D = null) -> bool:
 func has_checkpoint() -> bool:
 	return _save_data.has("checkpoint_position")
 
+func continue_from_checkpoint() -> bool:
+	if not has_checkpoint():
+		return false
+
+	var state = _save_data.get("state", {})
+	if state is Dictionary:
+		GameState.load_dict(state)
+	_restore_pending = true
+	get_tree().paused = false
+	var error := get_tree().change_scene_to_file(MAIN_SCENE)
+	if error != OK:
+		_restore_pending = false
+		return false
+	return true
+
+func start_new_game() -> void:
+	clear_checkpoint()
+	MissionManager.start_mission("reach_tree", "Reach the tree")
+	get_tree().paused = false
+	get_tree().change_scene_to_file(MAIN_SCENE)
+
 func clear_checkpoint() -> void:
 	_save_data.clear()
 	_restore_pending = false
@@ -71,8 +93,9 @@ func _load_file() -> void:
 	var state = _save_data.get("state", {})
 	if state is Dictionary:
 		GameState.load_dict(state)
-	_restore_pending = true
-	call_deferred("_try_restore_player")
+	_restore_pending = has_checkpoint()
+	if _restore_pending:
+		call_deferred("_try_restore_player")
 
 func _write_file() -> bool:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
