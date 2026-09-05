@@ -25,5 +25,5 @@ func _on_dialogue_ended() -> void:
 	repaired = true
 	GameState.set_flag("radio_repaired", true)
 	MissionManager.complete_mission("repair_radio")
-	CheckpointManager.save_progress()
+	CheckpointManager.save_checkpoint(player)
 	player.can_move = true
