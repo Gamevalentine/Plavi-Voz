@@ -1,5 +1,7 @@
 extends Node
 
+const MAX_INTERACTION_DISTANCE_SQ := 36.0
+
 var _candidates: Dictionary = {}
 var _active: Node3D
 
@@ -58,6 +60,8 @@ func _refresh_active() -> void:
 		if candidate.has_method("is_interaction_available") and not bool(candidate.call("is_interaction_available")):
 			continue
 		var distance := player.global_position.distance_squared_to(candidate.global_position)
+		if distance > MAX_INTERACTION_DISTANCE_SQ:
+			continue
 		if distance < nearest_distance:
 			nearest = candidate
 			nearest_distance = distance
