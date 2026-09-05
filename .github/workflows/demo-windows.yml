@@ -1,0 +1,90 @@
+name: Demo v0.1 - Godot 4.4 Test & Windows Build
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.4.1"
+  EXPORT_NAME: "Plavi-Voz-Demo-v0.1"
+
+jobs:
+  test-and-build:
+    name: Test Godot 4.4 + Build Windows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: barichello/godot-ci:4.4.1
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Prepare Godot 4.4 export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.local/share/godot/export_templates
+          mv "/root/.local/share/godot/export_templates/${GODOT_VERSION}.stable" ~/.local/share/godot/export_templates/
+          godot --version
+
+      - name: Import project and validate scripts
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --editor --path . --quit --verbose 2>&1 | tee godot-import.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          if grep -E "SCRIPT ERROR|Parse Error|Parser Error|Failed to load script" godot-import.log; then
+            echo "Godot script/import validation failed."
+            exit 1
+          fi
+
+      - name: Runtime smoke test
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --path . --quit-after 120 --verbose 2>&1 | tee godot-runtime.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          if grep -E "SCRIPT ERROR|Parse Error|Parser Error|Failed to load script" godot-runtime.log; then
+            echo "Godot runtime smoke test failed."
+            exit 1
+          fi
+
+      - name: Export Windows demo
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/windows
+          godot --headless --path . --verbose --export-release "Windows Desktop" "build/windows/${EXPORT_NAME}.exe" 2>&1 | tee godot-export.log
+          test -f "build/windows/${EXPORT_NAME}.exe"
+          test -f "build/windows/${EXPORT_NAME}.pck"
+          printf "Plavi Voz Demo v0.1\nGodot %s\nCommit %s\n" "$GODOT_VERSION" "$GITHUB_SHA" > build/windows/BUILD_INFO.txt
+
+      - name: Upload Windows demo
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plavi-Voz-Demo-v0.1-Windows
+          path: build/windows
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-4.4-test-logs
+          path: |
+            godot-import.log
+            godot-runtime.log
+            godot-export.log
+          if-no-files-found: ignore
+          retention-days: 14
