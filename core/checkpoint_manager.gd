@@ -8,6 +8,7 @@ signal checkpoint_cleared
 const SAVE_PATH := "user://checkpoint.json"
 const SAVE_VERSION := 1
 const MAIN_SCENE := "res://main.tscn"
+const CHAPTER_COMPLETE_SCENE := "res://scenes/chapter_complete.tscn"
 
 var _save_data: Dictionary = {}
 var _restore_pending := false
@@ -56,6 +57,10 @@ func continue_from_checkpoint() -> bool:
 	if state is Dictionary:
 		GameState.load_dict(state)
 		MissionManager.reset_story()
+	if bool(GameState.get_flag("chapter1_complete", false)):
+		get_tree().paused = false
+		return get_tree().change_scene_to_file(CHAPTER_COMPLETE_SCENE) == OK
+
 	_restore_pending = true
 	get_tree().paused = false
 	var error := get_tree().change_scene_to_file(MAIN_SCENE)
@@ -95,9 +100,17 @@ func _load_file() -> void:
 	if state is Dictionary:
 		GameState.load_dict(state)
 		MissionManager.reset_story()
+	if bool(GameState.get_flag("chapter1_complete", false)):
+		_restore_pending = false
+		call_deferred("_open_chapter_complete")
+		return
 	_restore_pending = has_checkpoint()
 	if _restore_pending:
 		call_deferred("_try_restore_player")
+
+func _open_chapter_complete() -> void:
+	await get_tree().process_frame
+	get_tree().change_scene_to_file(CHAPTER_COMPLETE_SCENE)
 
 func _write_file() -> bool:
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
