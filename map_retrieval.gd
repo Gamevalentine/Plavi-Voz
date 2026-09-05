@@ -30,5 +30,5 @@ func _on_dialogue_ended() -> void:
 	player.has_map = true
 	GameState.set_flag("has_map", true)
 	MissionManager.complete_mission("find_map")
-	CheckpointManager.save_progress()
+	CheckpointManager.save_checkpoint(player)
 	call_deferred("queue_free")
