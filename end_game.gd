@@ -6,10 +6,10 @@ extends Area3D
 var warning := true
 
 func _ready() -> void:
-	warning = not bool(GameState.get_flag("game_completed", false))
+	warning = not bool(GameState.get_flag("chapter1_complete", false))
 
 func _on_body_entered(body: Node3D) -> void:
-	if not body.is_in_group("player") or not warning:
+	if not body.is_in_group("player") or not warning or not MissionManager.is_current("reach_train"):
 		return
 	warning = false
 	_start_dialogue(dialogue, "start")
@@ -22,7 +22,8 @@ func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) ->
 	_on_dialogue_ended()
 
 func _on_dialogue_ended() -> void:
+	GameState.set_flag("chapter1_complete", true)
 	GameState.set_flag("game_completed", true)
 	MissionManager.complete_mission("reach_train")
 	CheckpointManager.save_progress()
-	get_tree().quit()
+	get_tree().change_scene_to_file("res://scenes/chapter_complete.tscn")
