@@ -1,310 +1,247 @@
 extends CharacterBody3D
+
 @export var MOVE_SPEED: float = 5.0
-@export var JUMP_SPEED: float = 2.0
+@export var JUMP_SPEED: float = 7.0
 @export var headbob_freq := 2
-@export var headbob_amp := .04
-var headbob_time := 0.0
-var foot_sound := true
-var foot_land := true
+@export var headbob_amp := 0.04
+@export var light_shake_enabled: bool = true
+@export var light_shake_intensity: float = 0.15
+@export var light_shake_freq: float = 3.0
+@export var flashlight_power: float = 100.0
+@export var power_drain_rate: float = 100.0 / 30.0
+@export var blink_interval: float = 0.4
+@export var recharge_rate_multiplier: float = 2.0
 
 @onready var dialogue = preload("res://dialogues/flashlight.dialogue")
 
-# Light shake variables
-@export var light_shake_enabled: bool = true
-@export var light_shake_intensity: float = 0.15  # Much stronger than headbob
-@export var light_shake_freq: float = 3.0  # Different frequency from headbob
+var headbob_time := 0.0
+var foot_sound := true
+var foot_land := true
 var light_shake_time := 0.0
 var light_original_pos: Vector3
 var spotlight_node: SpotLight3D
+var flashlight_enabled := true
+var is_blinking := false
+var blink_timer := 0.0
+var first_depletion := true
+var is_recharging := false
+var is_charging_audio_playing := false
+var can_move := true
+var has_map := false
+var map_toggle := false
 
-# Flashlight power system variables
-var flashlight_enabled: bool = true
-@export var flashlight_power: float = 100.0  # Full power (0-100)
-@export var power_drain_rate: float = 100.0 / 30.0  # Drains fully in 30 seconds
-var is_blinking: bool = false
-var blink_timer: float = 0.0
-@export var blink_interval: float = 0.4  # Base blinking interval
-
-var first_delpetion = true
-
-
-# Recharge variables
-var is_recharging: bool = false
-@export var recharge_rate_multiplier: float = 2.0  # Recharge at double the drain rate
-
-# Charging audio tracking
-var is_charging_audio_playing: bool = false
-
-var can_move: bool = true # to make the character not move during dialogue
-
-var has_map : bool = false
-
-var map_toggle: bool = false
-
-@export var first_person: bool = true: 
+@export var first_person: bool = true:
 	set(p_value):
 		first_person = p_value
 		if first_person:
 			var tween: Tween = create_tween()
-			tween.tween_property($CameraManager/Arm, "spring_length", 0.0, .33)
+			tween.tween_property($CameraManager/Arm, "spring_length", 0.0, 0.33)
 			tween.tween_callback($Body.set_visible.bind(false))
 		else:
 			$Body.visible = true
-			create_tween().tween_property($CameraManager/Arm, "spring_length", 6.0, .33)
+			create_tween().tween_property($CameraManager/Arm, "spring_length", 6.0, 0.33)
 
-@export var gravity_enabled: bool = true :
+@export var gravity_enabled: bool = true:
 	set(p_value):
 		gravity_enabled = p_value
 		if not gravity_enabled:
-			velocity.y = 0
-			
-@export var collision_enabled: bool = true :
+			velocity.y = 0.0
+
+@export var collision_enabled: bool = true:
 	set(p_value):
 		collision_enabled = p_value
-		$CollisionShapeBody.disabled = ! collision_enabled
-		$CollisionShapeRay.disabled = ! collision_enabled
+		$CollisionShapeBody.disabled = not collision_enabled
+		$CollisionShapeRay.disabled = not collision_enabled
 
-func _ready():
-	# Find the SpotLight3D node - adjust the path to match your scene structure
-	spotlight_node = get_node_or_null("%SpotLight3D")  # Using unique name
+func _ready() -> void:
+	spotlight_node = get_node_or_null("%SpotLight3D")
 	if not spotlight_node:
-		spotlight_node = get_node_or_null("SpotLight3D")  # Direct child
+		spotlight_node = get_node_or_null("SpotLight3D")
 	if not spotlight_node:
-		spotlight_node = get_node_or_null("CameraManager/SpotLight3D")  # Under camera
-	
+		spotlight_node = get_node_or_null("CameraManager/SpotLight3D")
+
 	if spotlight_node:
 		light_original_pos = spotlight_node.position
-		# Ensure flashlight is initially enabled
 		flashlight_enabled = spotlight_node.visible
 
-func _physics_process(p_delta) -> void:
-	if not can_move:
-		return
-		
-	var direction: Vector3 = get_camera_relative_input()
-	var h_veloc: Vector2 = Vector2(direction.x, direction.z).normalized() * MOVE_SPEED
-	if Input.is_key_pressed(KEY_SHIFT):
-		h_veloc *= 2
-	velocity.x = h_veloc.x
-	velocity.z = h_veloc.y
+func _physics_process(p_delta: float) -> void:
+	if can_move:
+		var direction := get_camera_relative_input()
+		var horizontal_velocity := Vector2(direction.x, direction.z).normalized() * MOVE_SPEED
+		if Input.is_key_pressed(KEY_SHIFT):
+			horizontal_velocity *= 2.0
+		velocity.x = horizontal_velocity.x
+		velocity.z = horizontal_velocity.y
+	else:
+		velocity.x = 0.0
+		velocity.z = 0.0
+
 	if gravity_enabled:
-		velocity.y -= 40 * p_delta
+		if is_on_floor():
+			if can_move and Input.is_key_pressed(KEY_SPACE):
+				velocity.y = JUMP_SPEED
+			elif velocity.y < 0.0:
+				velocity.y = 0.0
+		else:
+			velocity.y -= 40.0 * p_delta
+
 	move_and_slide()
-	
-	# Camera headbob
-	headbob_time += p_delta * velocity.length() * float(is_on_floor())
+
+	headbob_time += p_delta * Vector2(velocity.x, velocity.z).length() * float(is_on_floor())
 	%Arm.transform.origin = headbob(headbob_time)
-	
-	# Update flashlight power
+
 	update_flashlight_power(p_delta)
-	
-	# Independent light shake (only if flashlight is enabled, not blinking off, and moving)
-	var is_moving = velocity.length() > 0.1
+
+	var is_moving := Vector2(velocity.x, velocity.z).length() > 0.1
 	if light_shake_enabled and spotlight_node and flashlight_enabled and (not is_blinking or spotlight_node.visible) and is_moving:
 		light_shake_time += p_delta * light_shake_freq
 		spotlight_node.position = light_original_pos + light_shake()
 	elif spotlight_node:
 		spotlight_node.position = light_original_pos
-	
-	# Foot landing audio
-	if not foot_land and is_on_floor(): # Landed
+
+	if not foot_land and is_on_floor():
 		%FootAudio3D.play()
-	elif foot_land and not is_on_floor(): # Jumped 
+	elif foot_land and not is_on_floor():
 		%FootAudio3D.play()
 	foot_land = is_on_floor()
 
-# Update flashlight power and handle blinking
-func update_flashlight_power(delta: float):
-	
-	if first_delpetion and flashlight_power <= 5:
-		first_delpetion = false
+func update_flashlight_power(delta: float) -> void:
+	if first_depletion and flashlight_power <= 5.0:
+		first_depletion = false
 		_start_dialogue(dialogue, "start")
-	# Only drain power if flashlight is on and we're not recharging
+
 	if flashlight_enabled and spotlight_node and not is_recharging:
-		# Drain power when flashlight is on
-		flashlight_power = max(0, flashlight_power - power_drain_rate * delta)
-		
-		# Stop charging audio if it's playing
-		if is_charging_audio_playing:
-			%ChargingAudio3D.stop()
-			is_charging_audio_playing = false
-		
-		# Handle blinking based on power level
-		if flashlight_power <= 50.0 and flashlight_power > 0:
+		flashlight_power = max(0.0, flashlight_power - power_drain_rate * delta)
+		_stop_charging_audio()
+
+		if flashlight_power <= 50.0 and flashlight_power > 0.0:
 			is_blinking = true
 			handle_blinking(delta)
-		elif flashlight_power <= 0:
-			# Flashlight is completely dead
+		elif flashlight_power <= 0.0:
 			spotlight_node.visible = false
 			is_blinking = false
 		else:
-			# Normal operation
 			spotlight_node.visible = true
 			is_blinking = false
 	elif not flashlight_enabled and spotlight_node and is_recharging:
 		flashlight_power = min(100.0, flashlight_power + power_drain_rate * recharge_rate_multiplier * delta)
-		
-		# Play charging audio if not already playing
 		if not is_charging_audio_playing:
 			%ChargingAudio3D.play()
 			is_charging_audio_playing = true
 	else:
-		# Stop charging audio if it's playing
-		if is_charging_audio_playing:
-			%ChargingAudio3D.stop()
-			is_charging_audio_playing = false
+		_stop_charging_audio()
 
-# Handle the blinking behavior
-func handle_blinking(delta: float):
+func handle_blinking(delta: float) -> void:
 	blink_timer += delta
-	
-	# Calculate blink frequency based on power level
-	# Lower power = faster blinking (shorter interval)
-	var current_interval = blink_interval * (flashlight_power / 50.0)
-	
-	if blink_timer >= current_interval:
-		blink_timer = 0
-		
-		# Calculate on chance based on power level
-		# Lower power = less chance to stay on
-		var on_chance = flashlight_power / 50.0
-		
-		# Add some randomness
-		var random_factor = randf()
-		
-		if random_factor < 0.8:  # 80% chance for normal blink
-			spotlight_node.visible = randf() < on_chance
-		elif random_factor < 0.9:  # 10% chance for double blink
-			spotlight_node.visible = false
-			create_tween().tween_callback(func(): 
-				if is_blinking: spotlight_node.visible = randf() < on_chance
-			).set_delay(current_interval * 0.3)
-		else:  # 10% chance for long blink
-			spotlight_node.visible = false
-			create_tween().tween_callback(func(): 
-				if is_blinking: spotlight_node.visible = randf() < on_chance
-			).set_delay(current_interval * 0.7)
+	var current_interval := max(0.05, blink_interval * (flashlight_power / 50.0))
 
-# Camera headbob function (unchanged)
-func headbob(headbob_time):
-	var headbob_pos = Vector3.ZERO
-	
-	headbob_pos.y = sin(headbob_time * headbob_freq) * headbob_amp
-	headbob_pos.x = cos(headbob_time * headbob_freq / 2) * headbob_amp
-	
-	var foot_tresh = -headbob_amp + .002
-	if headbob_pos.y > foot_tresh:
+	if blink_timer < current_interval:
+		return
+
+	blink_timer = 0.0
+	var on_chance := flashlight_power / 50.0
+	var random_factor := randf()
+
+	if random_factor < 0.8:
+		spotlight_node.visible = randf() < on_chance
+	elif random_factor < 0.9:
+		spotlight_node.visible = false
+		create_tween().tween_callback(func():
+			if is_blinking:
+				spotlight_node.visible = randf() < on_chance
+		).set_delay(current_interval * 0.3)
+	else:
+		spotlight_node.visible = false
+		create_tween().tween_callback(func():
+			if is_blinking:
+				spotlight_node.visible = randf() < on_chance
+		).set_delay(current_interval * 0.7)
+
+func _stop_charging_audio() -> void:
+	if is_charging_audio_playing:
+		%ChargingAudio3D.stop()
+		is_charging_audio_playing = false
+
+func headbob(time: float) -> Vector3:
+	var headbob_pos := Vector3.ZERO
+	headbob_pos.y = sin(time * headbob_freq) * headbob_amp
+	headbob_pos.x = cos(time * headbob_freq / 2.0) * headbob_amp
+
+	var foot_threshold := -headbob_amp + 0.002
+	if headbob_pos.y > foot_threshold:
 		foot_sound = true
-	elif headbob_pos.y < foot_tresh and foot_sound:
+	elif headbob_pos.y < foot_threshold and foot_sound:
 		foot_sound = false
 		%FootAudio3D.play()
-	
+
 	return headbob_pos
 
-# Independent light shake function
 func light_shake() -> Vector3:
-	var shake_pos = Vector3.ZERO
-	
-	# Different patterns for more chaotic shake
-	shake_pos.x = sin(light_shake_time * 1.3) * light_shake_intensity
-	shake_pos.y = cos(light_shake_time * 1.7) * light_shake_intensity * 0.8
-	shake_pos.z = sin(light_shake_time * 2.1) * light_shake_intensity * 0.6
-	
-	return shake_pos
+	return Vector3(
+		sin(light_shake_time * 1.3) * light_shake_intensity,
+		cos(light_shake_time * 1.7) * light_shake_intensity * 0.8,
+		sin(light_shake_time * 2.1) * light_shake_intensity * 0.6
+	)
 
-# Start/stop light shake functions
-func start_light_shake():
+func start_light_shake() -> void:
 	light_shake_enabled = true
 
-func stop_light_shake():
+func stop_light_shake() -> void:
 	light_shake_enabled = false
 
-# Toggle flashlight function
-func toggle_flashlight():
+func toggle_flashlight() -> void:
 	if spotlight_node:
-		flashlight_enabled = !flashlight_enabled
-		
-		# Apply state to the actual spotlight
-		spotlight_node.visible = flashlight_enabled
-		
-func map_toggle_fun():
-	if has_map:
-		map_toggle = !map_toggle
-		
-		if map_toggle:
-			%MapMeshInstance3D.visible = true
-			%MapInAudio3D.play()
-			var tween: Tween = create_tween()
-			tween.tween_property(%MapArm3D, "spring_length", -0.2, .33)
-		else:
-			%MapOutAudio3D.play()
-			var tween: Tween = create_tween()
-			tween.tween_property(%MapArm3D, "spring_length", 4.0, .33)
-			#%MapMeshInstance3D.visible = false
-		
-# Returns the input vector relative to the camera. Forward is always the direction the camera is facing
+		flashlight_enabled = not flashlight_enabled
+		spotlight_node.visible = flashlight_enabled and flashlight_power > 0.0
+
+func map_toggle_fun() -> void:
+	if not has_map:
+		return
+
+	map_toggle = not map_toggle
+	if map_toggle:
+		%MapMeshInstance3D.visible = true
+		%MapInAudio3D.play()
+		create_tween().tween_property(%MapArm3D, "spring_length", -0.2, 0.33)
+	else:
+		%MapOutAudio3D.play()
+		create_tween().tween_property(%MapArm3D, "spring_length", 4.0, 0.33)
+
 func get_camera_relative_input() -> Vector3:
-	var input_dir: Vector3 = Vector3.ZERO
-	if Input.is_key_pressed(KEY_A): # Left
+	var input_dir := Vector3.ZERO
+	if Input.is_key_pressed(KEY_A):
 		input_dir -= %Arm.global_transform.basis.x
-	if Input.is_key_pressed(KEY_D): # Right
+	if Input.is_key_pressed(KEY_D):
 		input_dir += %Arm.global_transform.basis.x
-	if Input.is_key_pressed(KEY_W): # Forward
+	if Input.is_key_pressed(KEY_W):
 		input_dir -= %Arm.global_transform.basis.z
-	if Input.is_key_pressed(KEY_S): # Backward
+	if Input.is_key_pressed(KEY_S):
 		input_dir += %Arm.global_transform.basis.z
-	#if Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_SPACE): # Up
-		#velocity.y += JUMP_SPEED + MOVE_SPEED * .016
-	#if Input.is_key_pressed(KEY_Q): # Down
-		#velocity.y -= JUMP_SPEED + MOVE_SPEED * .016
-	#if Input.is_key_pressed(KEY_KP_ADD) or Input.is_key_pressed(KEY_EQUAL):
-		#MOVE_SPEED = clamp(MOVE_SPEED + .5, 5, 9999)
-	#if Input.is_key_pressed(KEY_KP_SUBTRACT) or Input.is_key_pressed(KEY_MINUS):
-		#MOVE_SPEED = clamp(MOVE_SPEED - .5, 5, 9999)
 	return input_dir
 
 func _input(p_event: InputEvent) -> void:
-	if p_event is InputEventMouseButton and p_event.pressed:
-		if p_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			MOVE_SPEED = clamp(MOVE_SPEED + 5, 5, 9999)
-		elif p_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			MOVE_SPEED = clamp(MOVE_SPEED - 5, 5, 9999)
-	
-	elif p_event is InputEventKey:
-		if p_event.pressed:
-			#if p_event.keycode == KEY_V:
-				#first_person = ! first_person
-			#elif p_event.keycode == KEY_G:
-				#gravity_enabled = ! gravity_enabled
-			#elif p_event.keycode == KEY_C:
-				#collision_enabled = ! collision_enabled
-			#elif p_event.keycode == KEY_L:  # Toggle light shake with L key
-				#light_shake_enabled = ! light_shake_enabled
-			if p_event.keycode == KEY_F:  # Toggle flashlight with F key
+	if not p_event is InputEventKey:
+		return
+
+	if p_event.pressed and not p_event.echo:
+		match p_event.keycode:
+			KEY_F:
 				toggle_flashlight()
-			elif p_event.keycode == KEY_R:  # Start recharging with R key
+			KEY_R:
 				is_recharging = true
-			elif p_event.keycode == KEY_M:  # Start recharging with R key
+			KEY_M:
 				map_toggle_fun()
-		elif not p_event.pressed:
-			if p_event.keycode == KEY_R:  # Stop recharging when R is released
-				is_recharging = false
-				# Stop charging audio
-				if is_charging_audio_playing:
-					%ChargingAudio3D.stop()
-					is_charging_audio_playing = false
-				print("Stopped recharging. Power: ", int(flashlight_power), "%")
-		# Handle key releases for movement
-		if not p_event.pressed and p_event.keycode in [KEY_Q, KEY_E, KEY_SPACE]:
-			velocity.y = 0
-			
-func _start_dialogue(dialogue: DialogueResource, start_node: String):
+	elif not p_event.pressed and p_event.keycode == KEY_R:
+		is_recharging = false
+		_stop_charging_audio()
+
+func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) -> void:
 	can_move = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	DialogueManager.show_dialogue_balloon(dialogue, start_node)
+	DialogueManager.show_dialogue_balloon(dialogue_resource, start_node)
 	await DialogueManager.dialogue_ended
 	_on_dialogue_ended()
 
-func _on_dialogue_ended():
+func _on_dialogue_ended() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	can_move = true
