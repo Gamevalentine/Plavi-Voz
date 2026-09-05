@@ -4,7 +4,7 @@ var player: Node3D
 var terrain: Node3D
 
 func _unhandled_key_input(p_event: InputEvent) -> void:
-	if not p_event is InputEventKey or not p_event.pressed or p_event.echo:
+	if not (p_event is InputEventKey) or not p_event.pressed or p_event.echo:
 		return
 
 	match p_event.keycode:
