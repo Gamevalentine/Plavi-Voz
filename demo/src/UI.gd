@@ -3,6 +3,7 @@ extends Control
 var player: Node3D
 var terrain: Node3D
 
+@onready var objective_header: Label = $MissionPanel/VBox/Header
 @onready var mission_label: Label = %MissionLabel
 @onready var flashlight_label: Label = %FlashlightLabel
 @onready var interaction_prompt: PanelContainer = %InteractionPrompt
@@ -30,7 +31,10 @@ func _process(_delta: float) -> void:
 func _refresh_mission() -> void:
 	var mission := MissionManager.get_current_mission()
 	var title := str(mission.get("title", ""))
-	mission_label.text = title if not title.is_empty() else "No active objective"
+	var step := int(mission.get("step", 0))
+	var total := int(mission.get("total", 0))
+	objective_header.text = "CHAPTER 1  •  OBJECTIVE %d/%d" % [step, total] if step > 0 else "CHAPTER 1  •  COMPLETE"
+	mission_label.text = title if not title.is_empty() else "The Last Signal"
 
 func _refresh_pause_buttons() -> void:
 	load_checkpoint_button.disabled = not CheckpointManager.has_checkpoint()
