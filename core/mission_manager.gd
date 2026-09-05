@@ -15,8 +15,19 @@ const STORY_MISSIONS := [
 	{"id": "reach_train", "title": "Reach the evacuation train"}
 ]
 
+const FLAG_MISSIONS := {
+	"radio_repaired": "repair_radio",
+	"reached_tree": "reach_tree",
+	"photos_inspected": "inspect_photos",
+	"has_map": "find_map",
+	"car_seen": "inspect_car",
+	"lake_seen": "reach_lake",
+	"nearby_seen": "nearby_signal",
+	"chapter1_complete": "reach_train"
+}
+
 func _ready() -> void:
-	call_deferred("_advance_story")
+	call_deferred("reset_story")
 
 func start_mission(mission_id: String, title: String = "") -> void:
 	if mission_id.is_empty() or GameState.is_mission_completed(mission_id):
@@ -42,7 +53,7 @@ func is_current(mission_id: String) -> bool:
 
 func get_current_mission() -> Dictionary:
 	var step := 0
-	for index in STORY_MISSIONS.size():
+	for index in range(STORY_MISSIONS.size()):
 		if str(STORY_MISSIONS[index]["id"]) == GameState.current_mission_id:
 			step = index + 1
 			break
@@ -54,7 +65,16 @@ func get_current_mission() -> Dictionary:
 	}
 
 func reset_story() -> void:
+	_sync_saved_flags()
 	_advance_story()
+
+func _sync_saved_flags() -> void:
+	for flag_name in FLAG_MISSIONS:
+		if not bool(GameState.get_flag(flag_name, false)):
+			continue
+		var mission_id := str(FLAG_MISSIONS[flag_name])
+		if not GameState.is_mission_completed(mission_id):
+			GameState.complete_mission(mission_id)
 
 func _advance_story() -> void:
 	for mission in STORY_MISSIONS:
