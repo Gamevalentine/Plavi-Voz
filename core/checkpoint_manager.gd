@@ -26,7 +26,7 @@ func save_progress() -> bool:
 
 func save_checkpoint(player: Node3D = null) -> bool:
 	if player == null:
-		player = get_tree().get_first_node_in_group("player")
+		player = get_tree().get_first_node_in_group("player") as Node3D
 	if player == null:
 		return false
 
@@ -35,8 +35,8 @@ func save_checkpoint(player: Node3D = null) -> bool:
 		"state": GameState.to_dict(),
 		"checkpoint_position": [player.global_position.x, player.global_position.y, player.global_position.z],
 		"player": {
-			"flashlight_power": player.flashlight_power,
-			"has_map": player.has_map
+			"flashlight_power": player.get("flashlight_power"),
+			"has_map": player.get("has_map")
 		}
 	}
 	var saved := _write_file()
@@ -49,6 +49,7 @@ func has_checkpoint() -> bool:
 
 func clear_checkpoint() -> void:
 	_save_data.clear()
+	_restore_pending = false
 	GameState.reset()
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
@@ -65,6 +66,7 @@ func _load_file() -> void:
 		return
 	_save_data = parsed
 	if _save_data.get("version", 0) != SAVE_VERSION:
+		_save_data.clear()
 		return
 	var state = _save_data.get("state", {})
 	if state is Dictionary:
@@ -86,14 +88,14 @@ func _on_node_added(node: Node) -> void:
 func _try_restore_player() -> void:
 	if not _restore_pending:
 		return
-	var player := get_tree().get_first_node_in_group("player")
+	var player := get_tree().get_first_node_in_group("player") as Node3D
 	if player == null:
 		return
 
-	player.has_map = bool(GameState.get_flag("has_map", player.has_map))
+	player.set("has_map", bool(GameState.get_flag("has_map", player.get("has_map"))))
 	var player_data = _save_data.get("player", {})
 	if player_data is Dictionary and player_data.has("flashlight_power"):
-		player.flashlight_power = float(player_data["flashlight_power"])
+		player.set("flashlight_power", float(player_data["flashlight_power"]))
 
 	var position_data = _save_data.get("checkpoint_position", [])
 	if position_data is Array and position_data.size() == 3:
