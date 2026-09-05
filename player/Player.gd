@@ -90,9 +90,10 @@ func _physics_process(p_delta: float) -> void:
 	headbob_time += p_delta * Vector2(velocity.x, velocity.z).length() * float(is_on_floor())
 	%Arm.transform.origin = headbob(headbob_time)
 
-	update_flashlight_power(p_delta)
+	if can_move:
+		update_flashlight_power(p_delta)
 
-	var is_moving := Vector2(velocity.x, velocity.z).length() > 0.1
+	var is_moving := can_move and Vector2(velocity.x, velocity.z).length() > 0.1
 	if light_shake_enabled and spotlight_node and flashlight_enabled and (not is_blinking or spotlight_node.visible) and is_moving:
 		light_shake_time += p_delta * light_shake_freq
 		spotlight_node.position = light_original_pos + light_shake()
@@ -220,23 +221,29 @@ func get_camera_relative_input() -> Vector3:
 	return input_dir
 
 func _input(p_event: InputEvent) -> void:
-	if not p_event is InputEventKey:
+	if not (p_event is InputEventKey):
 		return
 
-	if p_event.pressed and not p_event.echo:
-		match p_event.keycode:
-			KEY_F:
-				toggle_flashlight()
-			KEY_R:
-				is_recharging = true
-			KEY_M:
-				map_toggle_fun()
-	elif not p_event.pressed and p_event.keycode == KEY_R:
+	if not p_event.pressed and p_event.keycode == KEY_R:
 		is_recharging = false
 		_stop_charging_audio()
+		return
+
+	if not can_move or not p_event.pressed or p_event.echo:
+		return
+
+	match p_event.keycode:
+		KEY_F:
+			toggle_flashlight()
+		KEY_R:
+			is_recharging = true
+		KEY_M:
+			map_toggle_fun()
 
 func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) -> void:
 	can_move = false
+	is_recharging = false
+	_stop_charging_audio()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	DialogueManager.show_dialogue_balloon(dialogue_resource, start_node)
 	await DialogueManager.dialogue_ended
