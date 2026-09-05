@@ -13,17 +13,17 @@ func _ready() -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or done:
 		return
-	InteractionManager.register_interactable(self, "Inspect photographs")
+	InteractionManager.register_interactable(self, "Search the photographs")
 
 func _on_body_exited(body: Node3D) -> void:
 	if body.is_in_group("player"):
 		InteractionManager.unregister_interactable(self)
 
 func is_interaction_available() -> bool:
-	return not done
+	return not done and MissionManager.is_current("inspect_photos")
 
 func interact(body: Node3D) -> void:
-	if body != player or done:
+	if body != player or not is_interaction_available():
 		return
 	done = true
 	InteractionManager.unregister_interactable(self)
