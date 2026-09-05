@@ -5,10 +5,13 @@ signal mission_completed(mission_id: String)
 signal mission_cleared
 
 const STORY_MISSIONS := [
-	{"id": "reach_tree", "title": "Reach the tree"},
-	{"id": "repair_radio", "title": "Repair the radio"},
-	{"id": "find_map", "title": "Find the map"},
-	{"id": "follow_route", "title": "Follow the route to the railway"},
+	{"id": "repair_radio", "title": "Repair the radio and find a signal"},
+	{"id": "reach_tree", "title": "Reach the lone tree for shelter"},
+	{"id": "inspect_photos", "title": "Search the abandoned camp"},
+	{"id": "find_map", "title": "Find a route to the railway"},
+	{"id": "inspect_car", "title": "Inspect the abandoned car"},
+	{"id": "reach_lake", "title": "Reach the Vardar river"},
+	{"id": "nearby_signal", "title": "Follow the route toward the train"},
 	{"id": "reach_train", "title": "Reach the evacuation train"}
 ]
 
@@ -23,7 +26,9 @@ func start_mission(mission_id: String, title: String = "") -> void:
 
 func complete_mission(mission_id: String = "") -> void:
 	var target_id := mission_id if not mission_id.is_empty() else GameState.current_mission_id
-	if target_id.is_empty() or GameState.is_mission_completed(target_id):
+	if target_id.is_empty() or target_id != GameState.current_mission_id:
+		return
+	if GameState.is_mission_completed(target_id):
 		return
 	GameState.complete_mission(target_id)
 	mission_completed.emit(target_id)
@@ -32,11 +37,24 @@ func complete_mission(mission_id: String = "") -> void:
 func is_completed(mission_id: String) -> bool:
 	return GameState.is_mission_completed(mission_id)
 
+func is_current(mission_id: String) -> bool:
+	return GameState.current_mission_id == mission_id
+
 func get_current_mission() -> Dictionary:
+	var step := 0
+	for index in STORY_MISSIONS.size():
+		if str(STORY_MISSIONS[index]["id"]) == GameState.current_mission_id:
+			step = index + 1
+			break
 	return {
 		"id": GameState.current_mission_id,
-		"title": GameState.current_mission_title
+		"title": GameState.current_mission_title,
+		"step": step,
+		"total": STORY_MISSIONS.size()
 	}
+
+func reset_story() -> void:
+	_advance_story()
 
 func _advance_story() -> void:
 	for mission in STORY_MISSIONS:
