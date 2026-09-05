@@ -7,11 +7,26 @@ var done := false
 
 func _ready() -> void:
 	done = bool(GameState.get_flag("photos_inspected", false))
+	if not body_exited.is_connected(_on_body_exited):
+		body_exited.connect(_on_body_exited)
 
 func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player") or done:
 		return
+	InteractionManager.register_interactable(self, "Inspect photographs")
+
+func _on_body_exited(body: Node3D) -> void:
+	if body.is_in_group("player"):
+		InteractionManager.unregister_interactable(self)
+
+func is_interaction_available() -> bool:
+	return not done
+
+func interact(body: Node3D) -> void:
+	if body != player or done:
+		return
 	done = true
+	InteractionManager.unregister_interactable(self)
 	_start_dialogue(dialogue, "start")
 
 func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) -> void:
