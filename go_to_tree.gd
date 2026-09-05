@@ -11,7 +11,7 @@ func _ready() -> void:
 		call_deferred("queue_free")
 
 func _on_body_entered(body: Node3D) -> void:
-	if not body.is_in_group("player") or done:
+	if not body.is_in_group("player") or done or not MissionManager.is_current("reach_tree"):
 		return
 	done = true
 	_start_dialogue(dialogue, "start")
