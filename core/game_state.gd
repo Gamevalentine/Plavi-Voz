@@ -44,10 +44,12 @@ func to_dict() -> Dictionary:
 	}
 
 func load_dict(data: Dictionary) -> void:
-	flags = data.get("flags", {}).duplicate(true)
+	var loaded_flags = data.get("flags", {})
+	flags = loaded_flags.duplicate(true) if loaded_flags is Dictionary else {}
 	current_mission_id = str(data.get("current_mission_id", ""))
 	current_mission_title = str(data.get("current_mission_title", ""))
-	completed_missions = data.get("completed_missions", []).duplicate()
+	var loaded_completed = data.get("completed_missions", [])
+	completed_missions = loaded_completed.duplicate() if loaded_completed is Array else []
 	mission_state_changed.emit()
 
 func reset() -> void:
