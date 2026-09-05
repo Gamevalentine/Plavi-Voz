@@ -65,7 +65,7 @@ func continue_from_checkpoint() -> bool:
 
 func start_new_game() -> void:
 	clear_checkpoint()
-	MissionManager.start_mission("reach_tree", "Reach the tree")
+	MissionManager.reset_story()
 	get_tree().paused = false
 	get_tree().change_scene_to_file(MAIN_SCENE)
 
