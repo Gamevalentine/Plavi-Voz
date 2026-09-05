@@ -9,7 +9,7 @@ func _ready() -> void:
 	done = bool(GameState.get_flag("nearby_seen", false))
 
 func _on_body_entered(body: Node3D) -> void:
-	if not body.is_in_group("player") or done:
+	if not body.is_in_group("player") or done or not MissionManager.is_current("nearby_signal"):
 		return
 	done = true
 	_start_dialogue(dialogue, "start")
@@ -26,4 +26,4 @@ func _on_dialogue_ended() -> void:
 	player.can_move = true
 	GameState.set_flag("nearby_seen", true)
 	MissionManager.complete_mission("nearby_signal")
-	CheckpointManager.save_progress()
+	CheckpointManager.save_checkpoint(player)
