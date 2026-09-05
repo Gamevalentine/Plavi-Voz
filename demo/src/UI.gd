@@ -12,6 +12,7 @@ var terrain: Node3D
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group("game_ui")
 	visible = true
 	GameState.mission_state_changed.connect(_refresh_mission)
 	CheckpointManager.checkpoint_saved.connect(_refresh_pause_buttons)
@@ -59,6 +60,8 @@ func toggle_pause() -> void:
 	var paused := not get_tree().paused
 	get_tree().paused = paused
 	pause_overlay.visible = paused
+	if paused:
+		hide_interaction_prompt()
 	_refresh_pause_buttons()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED)
 
