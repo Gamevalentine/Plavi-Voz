@@ -24,10 +24,10 @@ func _on_body_exited(body: Node3D) -> void:
 		InteractionManager.unregister_interactable(self)
 
 func is_interaction_available() -> bool:
-	return not done
+	return not done and MissionManager.is_current("find_map")
 
 func interact(body: Node3D) -> void:
-	if body != player or done:
+	if body != player or not is_interaction_available():
 		return
 	done = true
 	InteractionManager.unregister_interactable(self)
