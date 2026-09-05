@@ -23,6 +23,6 @@ func _start_dialogue(dialogue_resource: DialogueResource, start_node: String) ->
 
 func _on_dialogue_ended() -> void:
 	GameState.set_flag("game_completed", true)
-	MissionManager.complete_mission("reach_end")
+	MissionManager.complete_mission("reach_train")
 	CheckpointManager.save_progress()
 	get_tree().quit()
